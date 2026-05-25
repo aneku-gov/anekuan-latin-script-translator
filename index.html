@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANEKUAN LATIN SCRIPT ENGINE</title>
+
+<style>
+body{
+    margin:0;
+    background:#0f1115;
+    color:#e6e6e6;
+    font-family:Arial,sans-serif;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+}
+
+header{
+    background:#151923;
+    border-bottom:1px solid #2a2f3a;
+    padding:14px;
+    font-size:18px;
+    font-weight:bold;
+    letter-spacing:1px;
+}
+
+.container{
+    flex:1;
+    display:flex;
+    gap:10px;
+    padding:10px;
+}
+
+textarea{
+    flex:1;
+    background:#151923;
+    color:#e6e6e6;
+    border:1px solid #2a2f3a;
+    border-radius:8px;
+    padding:12px;
+    font-size:16px;
+    font-family:Arial,sans-serif;
+    resize:none;
+    outline:none;
+}
+
+textarea::placeholder{
+    color:#777;
+}
+
+footer{
+    background:#151923;
+    border-top:1px solid #2a2f3a;
+    padding:10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.left-controls{
+    display:flex;
+    gap:8px;
+}
+
+button{
+    background:#2a2f3a;
+    color:#e6e6e6;
+    border:none;
+    padding:8px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    font-family:Arial,sans-serif;
+    transition:0.15s;
+}
+
+button:hover{
+    background:#3a4150;
+}
+
+button.active{
+    background:#5865f2;
+}
+
+#status{
+    font-size:12px;
+    color:#aaa;
+}
+</style>
+</head>
+
+<body>
+
+<header>ANEKUAN LATIN SCRIPT ENGINE</header>
+
+<div class="container">
+
+<textarea id="input"
+placeholder="Enter text..."></textarea>
+
+<textarea id="output"
+placeholder="Output..."
+readonly></textarea>
+
+</div>
+
+<footer>
+
+<div class="left-controls">
+
+<button id="latinBtn"
+class="active"
+onclick="setMode('latin')">
+Latin → Anekuan
+</button>
+
+<button id="anekuBtn"
+onclick="setMode('aneku')">
+Anekuan → Latin
+</button>
+
+</div>
+
+<div id="status">
+Mode: Latin → Anekuan
+</div>
+
+<button onclick="copyOutput()">
+Copy Output
+</button>
+
+</footer>
+
+<script>
+
+// =======================
+// LATIN → ANEKUAN
+// =======================
+
+const upperMap = {
+"A":"L",
+"E":"Ŋ",
+"I":"Ч",
+"O":"C",
+"U":"U",
+
+"F":"A",
+"H":"F",
+"J":"Б",
+"K":"E",
+"M":"H",
+"N":"П",
+"P":"Ь",
+"R":"Л",
+"S":"C̄",
+"T":"T",
+"V":"Ū"
+};
+
+const lowerMap = {
+"a":"ʟ",
+"e":"ŋ",
+"i":"ч",
+"o":"c",
+"u":"u",
+
+"f":"ᴀ",
+"h":"ꜰ",
+"j":"б",
+"k":"ᴇ",
+"m":"ʜ",
+"n":"п",
+"p":"ь",
+"r":"л",
+"s":"c̄",
+"t":"ᴛ",
+"v":"ū"
+};
+
+// =======================
+// REVERSE MAP
+// =======================
+
+const reverseMap = {};
+
+for(const k in upperMap){
+    reverseMap[upperMap[k]] = k;
+}
+
+for(const k in lowerMap){
+    reverseMap[lowerMap[k]] = k;
+}
+
+// FIX COMBINING CHARS
+
+reverseMap["c̄"] = "s";
+reverseMap["C̄"] = "S";
+
+reverseMap["ū"] = "v";
+reverseMap["Ū"] = "V";
+
+// =======================
+// MODE
+// =======================
+
+let currentMode = "latin";
+
+// =======================
+// PUNCTUATION
+// =======================
+
+function isPunctuation(ch){
+    return /[\s.,!?;:'"()\[\]{}\-—_+=/@#$%^&*<>|\\]/.test(ch);
+}
+
+// =======================
+// LATIN → ANEKUAN
+// =======================
+
+function toAneku(text){
+
+    let out = "";
+    let invalid = [];
+
+    for(const ch of text){
+
+        if(upperMap[ch]){
+            out += upperMap[ch];
+        }
+
+        else if(lowerMap[ch]){
+            out += lowerMap[ch];
+        }
+
+        else if(isPunctuation(ch)){
+            out += ch;
+        }
+
+        else{
+            out += "[INVALID]";
+            invalid.push(ch);
+        }
+    }
+
+    return {
+        out,
+        invalid
+    };
+}
+
+// =======================
+// ANEKUAN → LATIN
+// =======================
+
+function toLatin(text){
+
+    let out = "";
+    let invalid = [];
+
+    const chars =
+    Array.from(text.normalize("NFC"));
+
+    for(let i = 0; i < chars.length; i++){
+
+        const two =
+        (chars[i] || "") +
+        (chars[i + 1] || "");
+
+        // PRIORITY:
+        // c̄ / ū etc
+
+        if(reverseMap[two]){
+
+            out += reverseMap[two];
+            i++;
+            continue;
+        }
+
+        const ch = chars[i];
+
+        if(reverseMap[ch]){
+            out += reverseMap[ch];
+        }
+
+        else if(isPunctuation(ch)){
+            out += ch;
+        }
+
+        else{
+            out += "[INVALID]";
+            invalid.push(ch);
+        }
+    }
+
+    return {
+        out,
+        invalid
+    };
+}
+
+// =======================
+// MODE SWITCH
+// =======================
+
+function setMode(mode){
+
+    currentMode = mode;
+
+    document
+    .getElementById("latinBtn")
+    .classList.remove("active");
+
+    document
+    .getElementById("anekuBtn")
+    .classList.remove("active");
+
+    if(mode === "latin"){
+
+        document
+        .getElementById("latinBtn")
+        .classList.add("active");
+
+        document
+        .getElementById("status")
+        .textContent =
+        "Mode: Latin → Anekuan";
+    }
+
+    else{
+
+        document
+        .getElementById("anekuBtn")
+        .classList.add("active");
+
+        document
+        .getElementById("status")
+        .textContent =
+        "Mode: Anekuan → Latin";
+    }
+
+    convertNow();
+}
+
+// =======================
+// MAIN CONVERT
+// =======================
+
+function convertNow(){
+
+    const text =
+    document.getElementById("input").value;
+
+    let result;
+
+    if(currentMode === "latin"){
+
+        result = toAneku(text);
+
+        document
+        .getElementById("output")
+        .value = result.out;
+
+        if(result.invalid.length){
+
+            document
+            .getElementById("status")
+            .textContent =
+            "Mode: Latin → Anekuan | INVALID: " +
+            [...new Set(result.invalid)].join(" ");
+        }
+
+        else{
+
+            document
+            .getElementById("status")
+            .textContent =
+            "Mode: Latin → Anekuan";
+        }
+    }
+
+    else{
+
+        result = toLatin(text);
+
+        document
+        .getElementById("output")
+        .value = result.out;
+
+        if(result.invalid.length){
+
+            document
+            .getElementById("status")
+            .textContent =
+            "Mode: Anekuan → Latin | INVALID: " +
+            [...new Set(result.invalid)].join(" ");
+        }
+
+        else{
+
+            document
+            .getElementById("status")
+            .textContent =
+            "Mode: Anekuan → Latin";
+        }
+    }
+}
+
+// =======================
+// COPY
+// =======================
+
+function copyOutput(){
+
+    const output =
+    document.getElementById("output");
+
+    navigator.clipboard.writeText(output.value);
+
+    const old =
+    document.getElementById("status").textContent;
+
+    document
+    .getElementById("status")
+    .textContent =
+    "Copied to clipboard ✔";
+
+    setTimeout(()=>{
+
+        document
+        .getElementById("status")
+        .textContent = old;
+
+    },1200);
+}
+
+// =======================
+// EVENT
+// =======================
+
+document
+.getElementById("input")
+.addEventListener("input", convertNow);
+
+</script>
+
+</body>
+</html>
